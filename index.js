@@ -40,17 +40,31 @@ async function run() {
     const database = client.db('assigment11DB');
     const userCollections = database.collection('user');
 
-    app.post('/users', async(req, res)=>{
+
+    //Our created API
+
+    app.post('/users', async (req, res) => {
       const userInfo = req.body;
       userInfo.role = "buyer";
-      userInfo.createdAt= new Date();
+      userInfo.createdAt = new Date();
 
       const result = await userCollections.insertOne(userInfo);
       res.send(result);
     })
 
-    //Our created API
-    
+
+    //Get Role of Logged-in User
+    app.get('/users/role/:email', async (req, res) => {
+      const email = req.params.email;
+      const user = await userCollections.findOne({ email });
+
+      if (!user) {
+        return res.send({ role: null, message: "user not found" });
+      }
+
+      res.send({ role: user.role });
+    });
+
 
 
 
