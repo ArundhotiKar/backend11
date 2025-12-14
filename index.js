@@ -163,6 +163,24 @@ async function run() {
     });
 
 
+    // ---------------------------
+    // Add Order
+    // ---------------------------
+    const orderCollections = database.collection("order");
+    app.post("/orders", async (req, res) => {
+      const orderData = req.body;
+      console.log("Order request body:", req.body);
+      orderData.createdAt = new Date();
+      try {
+        const result = await orderCollections.insertOne(orderData);
+        res.send({ success: true, message: "Order saved successfully", result });
+      } catch (err) {
+        console.error("Error inserting order:", err);
+        res.status(500).send({ success: false, message: "Database error" });
+      }
+    });
+
+
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. Connected to MongoDB!");
   } finally {
