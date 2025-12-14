@@ -180,7 +180,7 @@ async function run() {
       }
     });
 
-    
+
     // Get orders by user email
     app.get("/my-orders", async (req, res) => {
       const email = req.query.email;
@@ -196,6 +196,26 @@ async function run() {
         res.status(500).send({ message: "Failed to fetch orders" });
       }
     });
+
+
+    //Cancel Order API
+    app.patch("/orders/cancel/:id", async (req, res) => {
+      const id = req.params.id;
+
+      const filter = { _id: new ObjectId(id), status: "pending" };
+
+      const update = {
+        $set: {
+          status: "cancelled",
+          paymentStatus: "cancelled"
+        }
+      };
+
+      const result = await orderCollections.updateOne(filter, update);
+
+      res.send(result);
+    });
+
 
 
     await client.db("admin").command({ ping: 1 });
