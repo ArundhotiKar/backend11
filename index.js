@@ -127,6 +127,41 @@ async function run() {
     });
 
 
+    // Get books by librarian email
+    app.get("/my-books", async (req, res) => {
+      const email = req.query.email;
+
+      try {
+        const books = await bookCollections
+          .find({ librarianEmail: email })
+          .toArray();
+
+        res.send(books);
+      } catch (err) {
+        res.status(500).send({ message: "Failed to fetch books" });
+      }
+    });
+
+
+
+    // Update book status (publish / unpublish)
+    app.patch("/books/:id", async (req, res) => {
+      const id = req.params.id;
+      const { status } = req.body;
+
+      try {
+        const result = await bookCollections.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { status } }
+        );
+
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Failed to update status" });
+      }
+    });
+
 
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. Connected to MongoDB!");
