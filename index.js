@@ -180,6 +180,23 @@ async function run() {
       }
     });
 
+    
+    // Get orders by user email
+    app.get("/my-orders", async (req, res) => {
+      const email = req.query.email;
+
+      try {
+        const orders = await orderCollections
+          .find({ userEmail: email })
+          .sort({ createdAt: -1 })
+          .toArray();
+
+        res.send(orders);
+      } catch (err) {
+        res.status(500).send({ message: "Failed to fetch orders" });
+      }
+    });
+
 
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. Connected to MongoDB!");
