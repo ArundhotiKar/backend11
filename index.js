@@ -287,7 +287,21 @@ async function run() {
       }
     });
 
+    app.patch("/books/edit/:id", async (req, res) => {
+      try {
+        const { _id, ...updatedData } = req.body;
 
+        const updated = await bookCollections.updateOne(
+          { _id: new ObjectId(req.params.id) },
+          { $set: updatedData }
+        );
+
+        res.send({ success: true, message: "Book updated successfully", updated });
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ success: false, message: "Failed to update book" });
+      }
+    });
 
 
     await client.db("admin").command({ ping: 1 });
