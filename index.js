@@ -139,7 +139,7 @@ async function run() {
       }
     });
 
-    
+
     // ---------------------------
     // PATCH /users/profile/:email
     // ---------------------------
@@ -371,6 +371,35 @@ async function run() {
       } catch (err) {
         console.error(err);
         res.status(500).send({ success: false, message: "Failed to update book" });
+      }
+    });
+
+
+    // ---------------------------
+    // DELETE Book and related orders
+    // ---------------------------
+    app.delete("/books/:id", async (req, res) => {
+      const bookId = req.params.id;
+
+      try {
+        // Delete the book
+        const bookResult = await bookCollections.deleteOne({ _id: new ObjectId(bookId) });
+
+        if (bookResult.deletedCount === 0) {
+          return res.status(404).send({ success: false, message: "Book not found" });
+        }
+
+        // Delete all orders related to this book
+        const orderResult = await orderCollections.deleteMany({ bookId });
+
+        res.send({
+          success: true,
+          message: "Book and related orders deleted successfully",
+          deletedOrders: orderResult.deletedCount
+        });
+      } catch (err) {
+        console.error("Error deleting book and orders:", err);
+        res.status(500).send({ success: false, message: "Delete failed" });
       }
     });
 
