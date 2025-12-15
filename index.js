@@ -125,6 +125,45 @@ async function run() {
       }
     });
 
+    // ---------------------------
+    // GET /users/profile/:email
+    // ---------------------------
+    app.get("/users/profile/:email", async (req, res) => {
+      try {
+        const user = await userCollections.findOne({
+          email: req.params.email,
+        });
+        res.send(user);
+      } catch (err) {
+        res.status(500).send({ message: "Failed to load profile" });
+      }
+    });
+
+    
+    // ---------------------------
+    // PATCH /users/profile/:email
+    // ---------------------------
+    app.patch("/users/profile/:email", async (req, res) => {
+      const { name, imageURL } = req.body;
+
+      try {
+        const result = await userCollections.updateOne(
+          { email: req.params.email },
+          {
+            $set: {
+              name,
+              imageURL,
+            },
+          }
+        );
+
+        res.send({ message: "Profile updated", result });
+      } catch (err) {
+        res.status(500).send({ message: "Profile update failed" });
+      }
+    });
+
+
 
     // ---------------------------
     // Get All Books
