@@ -200,21 +200,93 @@ async function run() {
 
     //Cancel Order API
     app.patch("/orders/cancel/:id", async (req, res) => {
-      const id = req.params.id;
+      try {
+        const id = req.params.id;
 
-      const filter = { _id: new ObjectId(id), status: "pending" };
+        const order = await orderCollections.findOne({
+          _id: new ObjectId(id),
+        });
 
-      const update = {
-        $set: {
-          status: "cancelled",
-          paymentStatus: "cancelled"
+        if (!order) {
+          return res.status(404).send({ message: "Order not found" });
         }
-      };
 
-      const result = await orderCollections.updateOne(filter, update);
+        if (order.status === "delivered") {
+          return res
+            .status(400)
+            .send({ message: "Delivered order cannot be cancelled" });
+        }
 
-      res.send(result);
+        const result = await orderCollections.updateOne(
+          { _id: new ObjectId(id) },
+          {
+            $set: {
+              status: "cancelled",
+              paymentStatus: "cancelled",
+            },
+          }
+        );
+
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Failed to cancel order" });
+      }
     });
+
+
+
+    app.get("/orders/librarian/:email", async (req, res) => {
+      try {
+        const email = req.params.email;
+
+        const orders = await orderCollections
+          .find({ librarianEmail: email })
+          .sort({ createdAt: -1 })
+          .toArray();
+
+        res.send(orders);
+      } catch (error) {
+        res.status(500).send({ message: "Failed to fetch orders" });
+      }
+    });
+
+
+    app.patch("/orders/status/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const { status: newStatus } = req.body;
+
+        const order = await orderCollections.findOne({
+          _id: new ObjectId(id),
+        });
+
+        if (!order) {
+          return res.status(404).send({ message: "Order not found" });
+        }
+
+        const currentStatus = order.status;
+
+        const valid =
+          (currentStatus === "pending" && newStatus === "shipped") ||
+          (currentStatus === "shipped" && newStatus === "delivered");
+
+        if (!valid) {
+          return res.status(400).send({
+            message: "Invalid status transition",
+          });
+        }
+
+        const result = await orderCollections.updateOne(
+          { _id: new ObjectId(id) },
+          { $set: { status: newStatus } }
+        );
+
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ message: "Failed to update status" });
+      }
+    });
+
 
 
 
