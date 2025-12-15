@@ -95,6 +95,38 @@ async function run() {
 
 
     // ---------------------------
+    // Get All Users
+    // ---------------------------
+    app.get("/users", async (req, res) => {
+      try {
+        const users = await userCollections.find({}).toArray();
+        res.json(users);
+      } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to fetch users" });
+      }
+    });
+
+
+    // ---------------------------
+    // Update User to Librarian or Admin
+    // ---------------------------
+    app.patch("/users/:id/role", async (req, res) => {
+      const { role } = req.body;
+      try {
+        const updated = await userCollections.updateOne(
+          { _id: new ObjectId(req.params.id) },
+          { $set: { role } }
+        );
+        res.json({ message: `Role updated to ${role}` });
+      } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Failed to update role" });
+      }
+    });
+
+
+    // ---------------------------
     // Get All Books
     // ---------------------------
     app.get("/books", async (req, res) => {
