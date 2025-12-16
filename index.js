@@ -35,6 +35,7 @@ async function run() {
 
     const database = client.db("assigment11DB");
     const userCollections = database.collection("user");
+    const wishlistCollections = database.collection("wishlist");
 
 
     // ---------------------------
@@ -53,6 +54,90 @@ async function run() {
         res.send({ success: true, message: "User saved successfully", result });
       } catch (err) {
         console.error("Error inserting user:", err);
+        res.status(500).send({ success: false, message: "Database error" });
+      }
+    });
+
+
+    // ---------------------------
+    // Add to Wishlist
+    // ---------------------------
+    app.post("/wishlist", async (req, res) => {
+      const wishlistData = req.body;
+      wishlistData.createdAt = new Date();
+      try {
+        const result = await wishlistCollections.insertOne(wishlistData);
+        res.send({ success: true, message: "Book added to wishlist successfully", result });
+      } catch (err) {
+        console.error("Error inserting wishlist item:", err);
+        res.status(500).send({ success: false, message: "Database error" });
+      }
+    });
+
+    // ---------------------------
+    // Get wishlist item by userEmail
+    // ---------------------------
+    app.get("/wishlist", async (req, res) => {
+      const { userEmail } = req.query; // শুধু userEmail লাগবে
+
+      if (!userEmail) {
+        return res.status(400).send({ success: false, message: "userEmail required" });
+      }
+
+      try {
+        const wishlistItems = await wishlistCollections
+          .find({ userEmail })
+          .toArray();
+
+        res.send(wishlistItems); // সব wishlist items for this user
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ success: false, message: "Database error" });
+      }
+    });
+
+    // ---------------------------
+    // Get wishlist item by user & bookId
+    // ---------------------------
+
+    app.get("/wishlist/id", async (req, res) => {
+      const { userEmail, bookId } = req.query;
+
+      if (!userEmail) {
+        return res.status(400).send({ success: false, message: "userEmail required" });
+      }
+
+      const query = { userEmail };
+      if (bookId) query.bookId = bookId; // optional filter for specific book
+
+      try {
+        const wishlistItems = await wishlistCollections.find(query).toArray();
+        res.send(wishlistItems);
+      } catch (err) {
+        console.error(err);
+        res.status(500).send({ success: false, message: "Database error" });
+      }
+    });
+
+
+
+    // ---------------------------
+    // Delete from wishlist
+    // ---------------------------
+    app.delete("/wishlist/:bookId", async (req, res) => {
+      const { bookId } = req.params;
+      const { userEmail } = req.query;
+
+      try {
+        const result = await wishlistCollections.deleteOne({ bookId, userEmail });
+
+        if (result.deletedCount === 0) {
+          return res.status(404).send({ success: false, message: "Item not found in wishlist" });
+        }
+
+        res.send({ success: true, message: "Removed from wishlist" });
+      } catch (err) {
+        console.error("Error deleting wishlist item:", err);
         res.status(500).send({ success: false, message: "Database error" });
       }
     });
