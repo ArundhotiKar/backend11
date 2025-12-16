@@ -36,6 +36,9 @@ async function run() {
     const database = client.db("assigment11DB");
     const userCollections = database.collection("user");
     const wishlistCollections = database.collection("wishlist");
+    //const reviewCollections = database.collection("review");
+    const ratingCollections = database.collection("ratings");
+
 
 
     // ---------------------------
@@ -485,6 +488,69 @@ async function run() {
       } catch (err) {
         console.error("Error deleting book and orders:", err);
         res.status(500).send({ success: false, message: "Delete failed" });
+      }
+    });
+
+
+    // ---------------------------
+    // Add a Review
+    // ---------------------------
+    app.post("/ratings", async (req, res) => {
+      const { bookId, userEmail, rating } = req.body;
+
+      if (!bookId || !userEmail || !rating) {
+        return res.status(400).send({ message: "Missing fields" });
+      }
+
+      try {
+        const existing = await ratingCollections.findOne({ bookId, userEmail });
+
+        if (existing) {
+          // Update existing rating instead of blocking
+          const updated = await ratingCollections.updateOne(
+            { bookId, userEmail },
+            { $set: { rating: Number(rating), createdAt: new Date() } }
+          );
+          return res.send({ success: true, message: "Rating updated", updated });
+        }
+
+        // Insert new rating if none exists
+        const result = await ratingCollections.insertOne({
+          bookId,
+          userEmail,
+          rating: Number(rating),
+          createdAt: new Date(),
+        });
+
+        res.send({ success: true, message: "Rating submitted", result });
+      } catch (err) {
+        res.status(500).send({ message: "Failed to submit rating" });
+      }
+    });
+
+    // ---------------------------
+    // Get Reviews by Book ID
+    // ---------------------------
+    app.get("/ratings/:bookId", async (req, res) => {
+      const { bookId } = req.params;
+
+      try {
+        const ratings = await ratingCollections.find({ bookId }).toArray();
+
+        if (ratings.length === 0) {
+          return res.send({ averageRating: null, ratings: [] });
+        }
+
+        // Ensure numeric addition
+        const total = ratings.reduce((sum, r) => sum + Number(r.rating), 0);
+        const averageRating = (total / ratings.length).toFixed(1);
+
+        res.send({
+          averageRating,
+          ratings,
+        });
+      } catch (err) {
+        res.status(500).send({ message: "Failed to fetch ratings" });
       }
     });
 
