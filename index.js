@@ -16,6 +16,30 @@ const port = process.env.PORT || 4000;
 app.use(cors());
 app.use(express.json());
 
+const admin = require("firebase-admin");
+const serviceAccount = require("./serviceAccountKey.json");
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
+
+
+const verifyFBToken = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).send({ message: "Unauthorized access" });
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    req.decodedEmail = decodedToken.email; // logged-in user email
+    next();
+  } catch (error) {
+    return res.status(401).send({ message: "Invalid token" });
+  }
+};
+
+
 // ---------------------------
 // MongoDB Connection
 // ---------------------------
@@ -40,11 +64,10 @@ async function run() {
     const ratingCollections = database.collection("ratings");
 
 
-
     // ---------------------------
     // Create New User
     // ---------------------------
-    app.post("/users", async (req, res) => {
+    app.post("/users",  async (req, res) => {
       const userInfo = req.body;
 
       // Default role if not selected
@@ -65,7 +88,7 @@ async function run() {
     // ---------------------------
     // Add to Wishlist
     // ---------------------------
-    app.post("/wishlist", async (req, res) => {
+    app.post("/wishlist", verifyFBToken, async (req, res) => {
       const wishlistData = req.body;
       wishlistData.createdAt = new Date();
       try {
@@ -80,7 +103,7 @@ async function run() {
     // ---------------------------
     // Get wishlist item by userEmail
     // ---------------------------
-    app.get("/wishlist", async (req, res) => {
+    app.get("/wishlist", verifyFBToken, async (req, res) => {
       const { userEmail } = req.query; // শুধু userEmail লাগবে
 
       if (!userEmail) {
