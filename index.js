@@ -6,11 +6,14 @@ const cors = require("cors");
 const dotenv = require("dotenv");
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
+
 dotenv.config();
 
 // Express App
 const app = express();
 const port = process.env.PORT || 4000;
+const stripe = require('stripe')(process.env.STRIPE_SECRETE);
+const crypto = require('crypto');
 
 // Middlewares
 app.use(cors());
@@ -60,14 +63,113 @@ async function run() {
     const database = client.db("assigment11DB");
     const userCollections = database.collection("user");
     const wishlistCollections = database.collection("wishlist");
-    //const reviewCollections = database.collection("review");
     const ratingCollections = database.collection("ratings");
+    const paymentCollections = database.collection("payment");
+    const bookCollections = database.collection("book");
+    const orderCollections = database.collection("order");
+
+    //Payment
+
+    app.post("/create-payment-intent", async (req, res) => {
+      try {
+        const information = req.body;
+        console.log("Payment request body:", information);
+
+        const amount = information.amount * 100; // cents
+        const email = information.email;
+        const orderId = information.orderId;
+
+        const session = await stripe.checkout.sessions.create({
+          payment_method_types: ["card"],
+
+          line_items: [
+            {
+              price_data: {
+                currency: "usd",
+                unit_amount: amount,
+                product_data: {
+                  name: "Book Purchase",
+                  description: `Payment by ${email}`,
+                },
+              },
+              quantity: 1,
+            },
+          ],
+
+          mode: "payment",
+
+          metadata: {
+            email: email,
+            orderId: orderId
+          },
+
+          customer_email: email,
+
+          success_url: `${process.env.SITE_DOMAIN}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${process.env.SITE_DOMAIN}/payment-canceled`,
+        });
+
+        res.send({ url: session.url });
+      } catch (error) {
+        console.error("Stripe error:", error);
+        res.status(500).send({ error: error.message });
+      }
+    });
+
+    app.post("/success-payment", async (req, res) => {
+      const session_id = req.query.session_id;
+      console.log("Success payment session ID:", session_id);
+
+      const session = await stripe.checkout.sessions.retrieve(session_id);
+      console.log("Retrieved session:", session);
+
+      const transactionId = session.payment_intent;
+
+      if (!session.metadata?.orderId) {
+        return res.status(400).send({ message: "Order ID missing in payment session" });
+      }
+
+      const isExist = await paymentCollections.findOne({ transactionId });
+
+      if (isExist) {
+        return res.send({ success: true, message: "Payment already recorded" });
+      }
+
+      if (session.payment_status == 'paid') {
+        const paymentRecord = {
+          email: session.metadata.email,
+          amount: session.amount_total / 100, // convert back to dollars
+          currency: session.currency,
+          transactionId,
+          paymentStatus: session.payment_status,
+          paidAt: new Date(),
+        }
+
+        const result = await paymentCollections.insertOne(paymentRecord);
+        console.log("Payment record inserted:", result);
+
+        // order update (THIS IS WHAT YOU WANT)
+        await orderCollections.updateOne(
+          { _id: new ObjectId(session.metadata.orderId) },
+          {
+            $set: {
+              paymentStatus: "paid",
+              status: "confirmed",
+              paidAt: new Date(),
+              transactionId: transactionId,
+            },
+          }
+        );
+        return res.send({ success: true, message: "Payment recorded", result });
+      }
+
+    });
 
 
     // ---------------------------
     // Create New User
     // ---------------------------
-    app.post("/users",  async (req, res) => {
+    app.post("/users", async (req, res) => {
       const userInfo = req.body;
 
       // Default role if not selected
@@ -172,7 +274,6 @@ async function run() {
     // ---------------------------
     // Add books
     // ---------------------------
-    const bookCollections = database.collection("book");
     app.post("/books", async (req, res) => {
       const bookData = req.body;
       //console.log("Book request body:", req.body);
@@ -348,7 +449,6 @@ async function run() {
     // ---------------------------
     // Add Order
     // ---------------------------
-    const orderCollections = database.collection("order");
     app.post("/orders", async (req, res) => {
       const orderData = req.body;
       console.log("Order request body:", req.body);
