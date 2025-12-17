@@ -154,9 +154,8 @@ async function run() {
           {
             $set: {
               paymentStatus: "paid",
-              status: "confirmed",
               paidAt: new Date(),
-              transactionId: transactionId,
+
             },
           }
         );
