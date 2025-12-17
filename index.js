@@ -166,6 +166,40 @@ async function run() {
     });
 
 
+    // GET /payments?email=user@example.com
+    app.get("/payments", verifyFBToken, async (req, res) => {
+      const email = req.query.email;
+
+      if (!email) {
+        return res.status(400).send({ success: false, message: "Email is required" });
+      }
+
+      try {
+        
+        const payments = await paymentCollections
+          .find({ email })
+          .sort({ paidAt: -1 }) // newest first
+          .toArray();
+
+        const paymentsWithBook = await Promise.all(
+          payments.map(async (payment) => {
+            if (payment.orderId) {
+              const order = await orderCollections.findOne({ _id: new ObjectId(payment.orderId) });
+              return { ...payment, bookName: order?.bookName || "-" };
+            }
+            return { ...payment, bookName: "-" };
+          })
+        );
+
+        res.send(paymentsWithBook);
+      } catch (err) {
+        console.error("Error fetching payments:", err);
+        res.status(500).send({ success: false, message: "Failed to fetch payments" });
+      }
+    });
+
+
+
     // ---------------------------
     // Create New User
     // ---------------------------
