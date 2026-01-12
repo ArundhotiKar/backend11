@@ -57,7 +57,7 @@ const client = new MongoClient(uri, {
 
 async function run() {
   try {
-    await client.connect();
+    //await client.connect();
     console.log("MongoDB connected successfully!");
 
     const database = client.db("assigment11DB");
@@ -135,32 +135,33 @@ async function run() {
         return res.send({ success: true, message: "Payment already recorded" });
       }
 
-      if (session.payment_status == 'paid') {
+      if (session.payment_status === 'paid') {
+
         const paymentRecord = {
           email: session.metadata.email,
-          amount: session.amount_total / 100, // convert back to dollars
+          orderId: session.metadata.orderId,   // ✅ MUST ADD
+          amount: session.amount_total / 100,
           currency: session.currency,
           transactionId,
           paymentStatus: session.payment_status,
           paidAt: new Date(),
-        }
+        };
 
-        const result = await paymentCollections.insertOne(paymentRecord);
-        console.log("Payment record inserted:", result);
+        await paymentCollections.insertOne(paymentRecord);
 
-        // order update (THIS IS WHAT YOU WANT)
         await orderCollections.updateOne(
           { _id: new ObjectId(session.metadata.orderId) },
           {
             $set: {
               paymentStatus: "paid",
               paidAt: new Date(),
-
             },
           }
         );
-        return res.send({ success: true, message: "Payment recorded", result });
+
+        return res.send({ success: true });
       }
+
 
     });
 
@@ -174,7 +175,7 @@ async function run() {
       }
 
       try {
-        
+
         const payments = await paymentCollections
           .find({ email })
           .sort({ paidAt: -1 }) // newest first
@@ -218,6 +219,26 @@ async function run() {
         res.status(500).send({ success: false, message: "Database error" });
       }
     });
+
+
+    // KEEP this
+    app.get("/users", async (req, res) => {
+      const { email } = req.query;
+      try {
+        if (email) {
+          const user = await userCollections.find({ email }).toArray();
+          return res.json(user);
+        } else {
+          const users = await userCollections.find({}).toArray();
+          return res.json(users);
+        }
+      } catch (err) {
+        console.error(err);
+        return res.status(500).json({ message: "Failed to fetch users" });
+      }
+    });
+
+
 
 
     // ---------------------------
@@ -342,7 +363,7 @@ async function run() {
     // ---------------------------
     // Get All Users
     // ---------------------------
-    app.get("/users", async (req, res) => {
+    app.get("/all-users", async (req, res) => {
       try {
         const users = await userCollections.find({}).toArray();
         res.json(users);
@@ -711,7 +732,7 @@ async function run() {
     });
 
 
-    await client.db("admin").command({ ping: 1 });
+    //await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. Connected to MongoDB!");
   } finally {
     // Do not close client to keep server running
